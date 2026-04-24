@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractors Work Zone</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --accent: #25d366; --blue: #007aff; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: auto; padding-bottom: 50px; }
+        .card { background: white; border-radius: 15px; padding: 15px; margin: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .banner-wrap { position: relative; width: 100%; height: 250px; background: #000; color: white; text-align: center; overflow: hidden; }
+        .banner-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
+        .banner-info { position: absolute; bottom: 0; width: 100%; padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .hidden { display: none; }
+        input, textarea { width: 100%; padding: 12px; margin-top: 8px; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div id="view-area" class="container">
+    <div id="profile-content">
+        <div class="banner-wrap">
+            <img id="outB" class="banner-img" src="https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=800">
+            <div class="banner-info">
+                <h1 id="outN">Swagat Hai</h1>
+                <p id="outP_Text">Apna Profile Link Se Kholein</p>
+                <a id="waBtn" href="#" class="btn" style="background:var(--accent); color:white; display:none; width:auto; padding:5px 15px;">WhatsApp Chat</a>
+            </div>
+        </div>
+        <div id="project-feed" style="padding:10px;"></div>
+    </div>
+
+    <div class="card">
+        <button class="btn" style="background:var(--blue); color:white;" onclick="toggleView('reg-view')">Register New Profile</button>
+        <button class="btn" style="background:#333; color:white;" onclick="openDashboard()">Contractor Login (Add Work)</button>
+    </div>
+</div>
+
+<div id="dash-view" class="container hidden">
+    <div class="card">
+        <h3>Contractor Dashboard</h3>
+        <label>Banner Badlein:</label>
+        <input type="file" accept="image/*" onchange="uploadImg(this, 'banner')">
+        <hr>
+        <label>Naya Project Dalein:</label>
+        <input type="text" id="pT" placeholder="Kaam ka naam">
+        <textarea id="pD" placeholder="Kaam ki jankari"></textarea>
+        <input type="file" accept="image/*" onchange="uploadImg(this, 'project')">
+        <button class="btn" style="background:var(--accent); color:white;" onclick="saveProject()">Upload Karein</button>
+        <button class="btn" onclick="location.reload()">Back</button>
+    </div>
+</div>
+
+<div id="reg-view" class="container hidden">
+    <div class="card">
+        <h3>New Registration</h3>
+        <input type="text" id="regN" placeholder="Pura Naam">
+        <input type="number" id="regP" placeholder="WhatsApp Number">
+        <input type="password" id="regPin" placeholder="4-Digit PIN Set Karein">
+        <button class="btn" style="background:var(--accent); color:white;" onclick="handleReg()">Profile Banayein</button>
+        <button class="btn" onclick="location.reload()">Back</button>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+        authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+        projectId: "contrectors-zone-25c0a",
+        databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let curId = new URLSearchParams(window.location.search).get('id');
+    let tempImg = "";
+
+    function toggleView(id) {
+        document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function handleReg() {
+        const n = document.getElementById('regN').value, p = document.getElementById('regP').value, pin = document.getElementById('regPin').value;
+        if(!n || p.length < 10) return alert("Sahi Details Bharein!");
+        db.ref('contractors/' + p).set({
+            profile: { n, p, pin, b: "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=800" },
+            status: 'ON'
+        }).then(() => { alert("Registration Safal! Link Copy Karein."); location.href="?id="+p; });
+    }
+
+    function openDashboard() {
+        if(!curId) return alert("Pehle apna profile link kholein!");
+        const pin = prompt("PIN Dalein:");
+        db.ref('contractors/'+curId+'/profile/pin').once('value', s => {
+            if(s.val() === pin) toggleView('dash-view');
+            else alert("Galat PIN!");
+        });
+    }
+
+    function uploadImg(input, type) {
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 600; canvas.height = img.height * (600/img.width);
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                const data = canvas.toDataURL('image/jpeg', 0.6);
+                if(type === 'banner') db.ref('contractors/'+curId+'/profile/b').set(data).then(() => alert("Banner Updated!"));
+                else tempImg = data;
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function saveProject() {
+        if(!tempImg) return alert("Photo select karein!");
+        db.ref('contractors/'+curId+'/projects').push({ t: document.getElementById('pT').value, d: document.getElementById('pD').value, img: tempImg })
+        .then(() => { alert("Project Live!"); location.reload(); });
+    }
+
+    window.onload = () => {
+        if(curId) {
+            db.ref('contractors/' + curId).on('value', snap => {
+                const data = snap.val();
+                if(!data || data.status === 'OFF') {
+                    document.getElementById('profile-content').innerHTML = "<h2>Profile Inactive</h2>";
+                    return;
+                }
+                document.getElementById('outN').innerText = data.profile.n;
+                document.getElementById('outB').src = data.profile.b;
+                document.getElementById('outP_Text').innerText = "WhatsApp: " + data.profile.p;
+                document.getElementById('waBtn').style.display = "inline-block";
+                document.getElementById('waBtn').href = "https://wa.me/91" + data.profile.p;
+                
+                let html = "";
+                if(data.projects) {
+                    Object.values(data.projects).reverse().forEach(p => {
+                        html += `<div class="card"><h4>${p.t}</h4><p>${p.d}</p><img src="${p.img}" style="width:100%; border-radius:10px;"></div>`;
+                    });
+                }
+                document.getElementById('project-feed').innerHTML = html;
+            });
+        }
+    }
+</script>
+</body>
+</html>
