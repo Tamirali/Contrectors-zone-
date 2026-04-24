@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractors Work Zone - Premium Profile</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <style>
+        :root { --accent: #25d366; --dark: #121212; --danger: #ff4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: auto; padding: 10px; }
+        
+        /* Bada Banner Styling */
+        .premium-banner { 
+            position: relative; 
+            width: 100%; 
+            height: 350px; 
+            background: #000; 
+            border-radius: 0 0 30px 30px; 
+            overflow: hidden; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .banner-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
+        
+        /* Info on Photo */
+        .banner-overlay { 
+            position: absolute; 
+            bottom: 0; left: 0; 
+            width: 100%; 
+            padding: 30px 20px; 
+            background: linear-gradient(transparent, rgba(0,0,0,0.9)); 
+            color: white; 
+            box-sizing: border-box;
+        }
+        .comp-name { font-size: 32px; font-weight: 900; text-transform: uppercase; margin: 0; text-shadow: 2px 2px 4px #000; }
+        .comp-loc { font-size: 16px; opacity: 0.9; margin: 5px 0; display: flex; align-items: center; gap: 5px; }
+        
+        /* Contact & Buttons */
+        .wa-btn { 
+            background: var(--accent); 
+            color: white; 
+            text-decoration: none; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 15px; 
+            border-radius: 15px; 
+            font-weight: bold; 
+            font-size: 18px; 
+            margin: 20px 0;
+            box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3);
+        }
+        .card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 15px; }
+        input, textarea, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
+        .btn-green { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .hidden { display: none; }
+        .project-img { width: 100%; border-radius: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="reg-view" class="hidden">
+        <div class="card">
+            <h2 style="text-align:center;">Register Your Business</h2>
+            <input type="text" id="rName" placeholder="Company/Contractor Name">
+            <input type="text" id="rWork" placeholder="Work (e.g. Electrician)">
+            <input type="text" id="rLoc" placeholder="Location (e.g. Siwan, Bihar)">
+            <input type="number" id="rPhone" placeholder="WhatsApp Number">
+            <input type="password" id="rPin" placeholder="Create 4-Digit PIN">
+            <p style="font-size:12px; margin-top:10px;">Bada Banner Photo Chunein:</p>
+            <input type="file" onchange="handleFile(this)">
+            <button class="btn-green" onclick="register()">Launch My Profile</button>
+        </div>
+    </div>
+
+    <div id="viewer-view" class="hidden">
+        <div class="premium-banner">
+            <img id="vImg" class="banner-img" src="">
+            <div class="banner-overlay">
+                <h1 id="vName" class="comp-name"></h1>
+                <div class="comp-loc">📍 <span id="vLoc"></span></div>
+                <div style="font-size: 14px; color: var(--accent);" id="vWork"></div>
+            </div>
+        </div>
+
+        <a href="#" id="waLink" class="wa-btn">
+            💬 WhatsApp Par Sampark Karein
+        </a>
+
+        <div id="vProjects"></div>
+        
+        <button class="btn-green" style="background:#333; margin-top:20px;" onclick="openLogin()">+ Naya Work Upload Karein</button>
+    </div>
+
+    </div>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+    authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+    projectId: "contrectors-zone-25c0a",
+    storageBucket: "contrectors-zone-25c0a.firebasestorage.app",
+    messagingSenderId: "796993751473",
+    appId: "1:796993751473:web:4f2481455a0f68b7dd5590",
+    databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let tempImg = "";
+
+function init() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if(id) loadProfile(id); else document.getElementById('reg-view').classList.remove('hidden');
+}
+
+function register() {
+    const n = document.getElementById('rName').value;
+    const p = document.getElementById('rPhone').value;
+    const loc = document.getElementById('rLoc').value;
+    
+    const data = {
+        name: n, 
+        work: document.getElementById('rWork').value,
+        phone: p, 
+        location: loc,
+        pin: document.getElementById('rPin').value,
+        status: 'ON',
+        banner: tempImg
+    };
+
+    db.ref('contractors/' + p).set(data).then(() => {
+        window.location.href = "?id=" + p;
+    });
+}
+
+function loadProfile(id) {
+    db.ref('contractors/' + id).on('value', snap => {
+        const data = snap.val();
+        if(!data || data.status === 'OFF') {
+            document.body.innerHTML = "<center><h1>Profile Disabled</h1></center>"; return;
+        }
+        document.getElementById('viewer-view').classList.remove('hidden');
+        document.getElementById('vName').innerText = data.name;
+        document.getElementById('vWork').innerText = data.work;
+        document.getElementById('vLoc').innerText = data.location;
+        document.getElementById('vImg').src = data.banner || "https://images.unsplash.com/photo-1541888946425-d81bb19480c5?w=800";
+        document.getElementById('waLink').href = "https://wa.me/91" + data.phone;
+        
+        // Projects Render Logic (Same as before)
+    });
+}
+
+function handleFile(input) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 800; // Bada size for banner
+            canvas.height = 500;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, 800, 500);
+            tempImg = canvas.toDataURL('image/jpeg', 0.7);
+        };
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
