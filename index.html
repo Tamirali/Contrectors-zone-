@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractors Zone - Master Admin</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --accent: #25d366; --blue: #007aff; --danger: #ff4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: auto; padding-bottom: 80px; }
+        .card { background: white; border-radius: 15px; padding: 15px; margin: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .hidden { display: none; }
+        .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .contractor-card { background: #fff; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="main-view" class="container">
+    <div class="card" style="text-align:center;">
+        <h2>Contractor Zone</h2>
+        <button class="btn" style="background:#333; color:white;" onclick="openAdmin()">Master Admin Login</button>
+        <button class="btn" style="background:var(--blue); color:white;" onclick="toggleView('reg-view')">Naya Registration</button>
+    </div>
+    <div id="profile-display"></div>
+</div>
+
+<div id="admin-view" class="container hidden">
+    <div class="card">
+        <h3>Admin Dashboard</h3>
+        <div id="admin-list">Data load ho raha hai...</div>
+        <button class="btn" style="background:#666; color:white;" onclick="location.reload()">Bahar Niklein</button>
+    </div>
+</div>
+
+<div id="reg-view" class="container hidden">
+    <div class="card">
+        <h3>Naya Contractor Jodiye</h3>
+        <input type="text" id="regN" placeholder="Naam" style="width:100%; padding:10px; margin-bottom:10px;">
+        <input type="number" id="regP" placeholder="WhatsApp Number" style="width:100%; padding:10px; margin-bottom:10px;">
+        <input type="password" id="regPin" placeholder="4-Digit PIN" style="width:100%; padding:10px; margin-bottom:10px;">
+        <button class="btn" style="background:var(--accent); color:white;" onclick="handleRegister()">Profile Banayein</button>
+    </div>
+</div>
+
+<script>
+    // --- FIREBASE CONFIG (Ise check karein) ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+        authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+        projectId: "contrectors-zone-25c0a",
+        databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function toggleView(id) {
+        document.querySelectorAll('.container').forEach(c => c.classList.add('hidden'));
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    // --- Admin Dashboard Logic ---
+    function openAdmin() {
+        const pass = prompt("Admin Password Dalein:");
+        if (pass !== "tamir@00769") return alert("Galat Password!");
+
+        toggleView('admin-view');
+        const listDiv = document.getElementById('admin-list');
+
+        // Sabse pehle database check karein
+        db.ref('contractors').on('value', (snap) => {
+            const data = snap.val();
+            let html = "";
+            if (!data) {
+                html = "<p style='color:red;'>Koi contractor nahi mila. Pehle register karein.</p>";
+            } else {
+                for (let id in data) {
+                    const c = data[id].profile || {};
+                    const status = data[id].status || 'ON';
+                    html += `
+                        <div class="contractor-card">
+                            <b>${c.n || 'Naam Nahi Hai'}</b> (${id})<br>
+                            Status: <span style="color:${status==='ON'?'green':'red'}">${status}</span>
+                            <div style="display:flex; gap:5px; margin-top:10px;">
+                                <button onclick="toggleStatus('${id}', '${status}')" style="flex:1;">ON/OFF</button>
+                                <button onclick="deleteC('${id}')" style="flex:1; background:red; color:white; border:none; border-radius:5px;">DELETE</button>
+                            </div>
+                        </div>`;
+                }
+            }
+            listDiv.innerHTML = html;
+        });
+    }
+
+    function toggleStatus(id, current) {
+        const next = current === 'ON' ? 'OFF' : 'ON';
+        db.ref('contractors/' + id + '/status').set(next);
+    }
+
+    function deleteC(id) {
+        if(confirm("Kya aap ise delete karna chahte hain?")) {
+            db.ref('contractors/' + id).remove();
+        }
+    }
+
+    function handleRegister() {
+        const n = document.getElementById('regN').value, p = document.getElementById('regP').value, pin = document.getElementById('regPin').value;
+        if(!n || p.length < 10) return alert("Sahi details bharein!");
+
+        db.ref('contractors/' + p).set({
+            profile: { n, p, pin },
+            status: 'ON'
+        }).then(() => {
+            alert("Registration Safal!");
+            location.reload();
+        });
+    }
+</script>
+</body>
+</html>
