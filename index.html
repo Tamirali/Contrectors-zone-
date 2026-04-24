@@ -1,0 +1,41 @@
+function openAdmin() {
+    const pass = prompt("Admin Password:");
+    if (pass !== "tamir@00769") return alert("Access Denied!");
+    
+    // View change karein
+    toggleView('admin-view');
+    const listDiv = document.getElementById('admin-list');
+    listDiv.innerHTML = "List load ho rahi hai, kripya intezar karein...";
+
+    // Database se data lein
+    db.ref('contractors').on('value', (snap) => {
+        const data = snap.val();
+        let html = "";
+        
+        if (!data) {
+            html = "<p style='color:red;'>Database khali hai ya connection fail ho gaya.</p>";
+        } else {
+            for (let id in data) {
+                const c = data[id].profile;
+                const status = data[id].status || 'ON';
+                html += `
+                    <div class="contractor-row" style="border-bottom:1px solid #ddd; padding:10px; margin-bottom:5px; background:#fff;">
+                        <div style="margin-bottom:5px;">
+                            <span class="status-badge ${status.toLowerCase()}" style="padding:2px 6px; border-radius:5px;">${status}</span>
+                            <b style="font-size:16px; margin-left:5px;">${c.n || 'No Name'}</b> <br>
+                            <small style="color:#666;">ID/No: ${id}</small>
+                        </div>
+                        <div class="row-actions" style="display:flex; gap:10px;">
+                            <button class="btn-blue" style="flex:1; padding:5px; cursor:pointer;" onclick="toggleStatus('${id}', '${status}')">ON/OFF</button>
+                            <button class="btn-danger" style="flex:1; padding:5px; cursor:pointer;" onclick="deleteContractor('${id}')">DELETE</button>
+                            <button class="btn-dark" style="flex:1; padding:5px; cursor:pointer;" onclick="window.location.href='?id=${id}'">Check</button>
+                        </div>
+                    </div>`;
+            }
+        }
+        listDiv.innerHTML = html;
+    }, (error) => {
+        // Agar koi error aaye toh yahan dikhega
+        listDiv.innerHTML = "<p style='color:red;'>Error: " + error.message + "</p>";
+    });
+}
