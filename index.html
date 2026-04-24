@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractors Work Zone - Master Control</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --accent: #25d366; --dark: #121212; --danger: #ff4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 0; color: #333; }
+        .container { max-width: 500px; margin: auto; padding: 15px; }
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        
+        /* Profile Styling */
+        .header-box { text-align: center; padding: 20px; background: var(--dark); color: white; border-radius: 15px; margin-bottom: 20px; }
+        .profile-img { width: 120px; height: 120px; border-radius: 50%; border: 4px solid var(--accent); object-fit: cover; background: #fff; }
+        .work-badge { background: var(--accent); color: black; padding: 5px 15px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 10px; }
+        
+        /* Project Styling */
+        .project-card { background: white; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid #ddd; }
+        .project-img { width: 100%; height: auto; display: block; }
+        .project-info { padding: 15px; }
+
+        /* Admin Controls */
+        .admin-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .btn { padding: 10px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn-green { background: var(--accent); color: white; }
+        .btn-red { background: var(--danger); color: white; }
+        .btn-toggle { background: #666; color: white; padding: 5px 10px; font-size: 12px; width: auto; }
+        
+        input, textarea { width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
+        .hidden { display: none; }
+        .qr-area { text-align: center; margin-top: 20px; padding: 15px; background: #fff; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="viewer-view" class="hidden">
+        <div id="profile-content">
+            <div class="header-box">
+                <img id="vImg" class="profile-img" src="">
+                <h1 id="vName" style="margin: 10px 0 5px 0;"></h1>
+                <div id="vWork" class="work-badge"></div>
+                <p id="vPhone" style="margin-top: 10px; font-weight: bold;"></p>
+            </div>
+            <div id="vProjects"></div>
+            <button class="btn btn-green" onclick="openLogin()">Post New Work (PIN Required)</button>
+        </div>
+    </div>
+
+    <div id="reg-view" class="hidden">
+        <div class="card">
+            <h2>Naya Contractor Register Karein</h2>
+            <input type="text" id="rName" placeholder="Contractor ka Naam">
+            <input type="text" id="rWork" placeholder="Kaam (e.g. Welder, Painter)">
+            <input type="number" id="rPhone" placeholder="WhatsApp Number">
+            <input type="password" id="rPin" placeholder="Security PIN (4 Digit)">
+            <p style="font-size: 12px; color: #666;">Profile Photo Upload Karein:</p>
+            <input type="file" onchange="handleFile(this, 'profile')">
+            <button class="btn btn-green" onclick="register()">Register & Get Link</button>
+            <button class="btn" style="background:#333; color:white;" onclick="showAdminLogin()">Master Admin Dashboard</button>
+        </div>
+    </div>
+
+    <div id="admin-view" class="hidden">
+        <div class="card">
+            <h2>Master Admin Panel</h2>
+            <div id="contractor-list"></div>
+            <button class="btn btn-red" onclick="location.reload()">Logout Admin</button>
+        </div>
+    </div>
+
+    <div id="post-view" class="hidden">
+        <div class="card">
+            <h3>Add New Work Photo</h3>
+            <input type="text" id="pTitle" placeholder="Project Name">
+            <textarea id="pDesc" placeholder="Details..."></textarea>
+            <input type="file" onchange="handleFile(this, 'project')">
+            <button class="btn btn-green" id="uploadBtn" onclick="uploadProject()">Upload Project</button>
+            <button class="btn btn-red" onclick="closePost()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Configuration ---
+const firebaseConfig = {
+    apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+    authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+    projectId: "contrectors-zone-25c0a",
+    storageBucket: "contrectors-zone-25c0a.firebasestorage.app",
+    messagingSenderId: "796993751473",
+    appId: "1:796993751473:web:4f2481455a0f68b7dd5590",
+    databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+let activeId = "";
+let tempImg = { profile: "", project: "" };
+
+// --- Logic ---
+
+function init() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const mode = params.get('mode');
+
+    if(mode === 'admin') {
+        showAdminPanel();
+    } else if(id) {
+        loadProfile(id);
+    } else {
+        document.getElementById('reg-view').classList.remove('hidden');
+    }
+}
+
+// Load Contractor Profile
+function loadProfile(id) {
+    activeId = id;
+    db.ref('contractors/' + id).on('value', snap => {
+        const data = snap.val();
+        if(!data) return alert("Contractor not found!");
+        if(data.status === 'OFF') {
+            document.body.innerHTML = "<center><h2 style='margin-top:100px;'>This profile is currently disabled by Admin.</h2></center>";
+            return;
+        }
+
+        document.getElementById('viewer-view').classList.remove('hidden');
+        document.getElementById('vName').innerText = data.name;
+        document.getElementById('vWork').innerText = data.work;
+        document.getElementById('vPhone').innerText = "WhatsApp: " + data.phone;
+        document.getElementById('vImg').src = data.profilePic || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png";
+        
+        let projectsHtml = "";
+        if(data.projects) {
+            Object.values(data.projects).reverse().forEach(p => {
+                projectsHtml += `
+                <div class="project-card">
+                    <img src="${p.img}" class="project-img">
+                    <div class="project-info">
+                        <small style="color:gray">${p.date}</small>
+                        <h4 style="margin:5px 0;">${p.title}</h4>
+                        <p style="font-size:14px; color:#555;">${p.desc}</p>
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('vProjects').innerHTML = projectsHtml;
+    });
+}
+
+// Master Admin Dashboard
+function showAdminPanel() {
+    const pass = prompt("Enter Master Admin Password:");
+    if(pass !== "tamir@00769") return (window.location.href = "index.html");
+
+    document.getElementById('admin-view').classList.remove('hidden');
+    db.ref('contractors').on('value', snap => {
+        let html = "";
+        snap.forEach(child => {
+            const c = child.val();
+            html += `
+            <div class="admin-item">
+                <div style="flex:1">
+                    <b>${c.name}</b><br><small>${c.phone}</small><br>
+                    <span style="color:${c.status==='ON'?'green':'red'}">Status: ${c.status}</span>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-toggle" onclick="toggleUser('${child.key}', '${c.status}')">ON/OFF</button>
+                    <button class="btn btn-toggle" style="background:red" onclick="deleteUser('${child.key}')">DEL</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('contractor-list').innerHTML = html || "No contractors registered.";
+    });
+}
+
+function toggleUser(id, current) {
+    const next = current === 'ON' ? 'OFF' : 'ON';
+    db.ref('contractors/' + id).update({ status: next });
+}
+
+function deleteUser(id) {
+    if(confirm("Permanently delete this contractor?")) db.ref('contractors/' + id).remove();
+}
+
+// Registration
+function register() {
+    const n = document.getElementById('rName').value;
+    const p = document.getElementById('rPhone').value;
+    const pin = document.getElementById('rPin').value;
+    if(!n || !p || !pin) return alert("Sari jankari bharein!");
+
+    const data = {
+        name: n, work: document.getElementById('rWork').value,
+        phone: p, pin: pin, status: 'ON',
+        profilePic: tempImg.profile
+    };
+
+    db.ref('contractors/' + p).set(data).then(() => {
+        const link = window.location.origin + window.location.pathname + "?id=" + p;
+        alert("Registration Successful!");
+        window.location.href = link;
+    });
+}
+
+// Post Project
+function openLogin() {
+    const pin = prompt("Enter your 4-digit PIN to post:");
+    db.ref('contractors/' + activeId + '/pin').once('value', s => {
+        if(s.val() === pin) {
+            document.getElementById('post-view').classList.remove('hidden');
+            document.getElementById('viewer-view').classList.add('hidden');
+        } else alert("Wrong PIN!");
+    });
+}
+
+function uploadProject() {
+    const t = document.getElementById('pTitle').value;
+    if(!t || !tempImg.project) return alert("Title and Photo required!");
+    
+    document.getElementById('uploadBtn').innerText = "Uploading...";
+    const pData = {
+        title: t, desc: document.getElementById('pDesc').value,
+        img: tempImg.project, date: new Date().toLocaleDateString('hi-IN')
+    };
+
+    db.ref('contractors/' + activeId + '/projects').push(pData).then(() => {
+        alert("Success!");
+        closePost();
+    });
+}
+
+function closePost() {
+    document.getElementById('post-view').classList.add('hidden');
+    document.getElementById('viewer-view').classList.remove('hidden');
+    document.getElementById('uploadBtn').innerText = "Upload Project";
+}
+
+// Helper: Handle Image & Compression
+function handleFile(input, type) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 600;
+            canvas.height = img.height * (600 / img.width);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            if(type === 'profile') tempImg.profile = canvas.toDataURL('image/jpeg', 0.6);
+            else tempImg.project = canvas.toDataURL('image/jpeg', 0.6);
+        };
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function showAdminLogin() { window.location.href = "?mode=admin"; }
+
+window.onload = init;
+</script>
+</body>
+</html>
