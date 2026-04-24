@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractors Work Zone - Cloud Edition</title>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <style>
+        :root { --accent: #25d366; --dark: #121212; --danger: #ff4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 0; }
+        .container { max-width: 500px; margin: auto; padding: 10px; }
+        .banner-wrap { position: relative; width: 100%; height: 240px; background: #000; border-radius: 0 0 25px 25px; overflow: hidden; }
+        .banner-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+        .overlay { position: absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; color:white; text-align:center; padding:15px; box-sizing:border-box; }
+        .name-big { font-size: 34px; font-weight: 900; text-transform: uppercase; margin:0; text-shadow: 2px 2px 5px #000; }
+        .work-tag { background: var(--accent); color: #000; padding: 5px 18px; border-radius: 20px; font-weight: bold; margin: 12px 0; font-size: 18px; }
+        .wa-link { color: white; text-decoration: none; font-weight: bold; font-size: 18px; border-bottom: 2px solid var(--accent); }
+        .card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-top: 15px; }
+        .profile-pic { width: 90px; height: 90px; border-radius: 50%; border: 4px solid white; margin-top: -45px; position: relative; z-index: 5; object-fit: cover; background: #fff; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        input, textarea, button { width: 100%; padding: 12px; margin-top: 10px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box; }
+        .btn-green { background: var(--accent); color: white; border: none; font-weight: bold; cursor: pointer; }
+        .project-img { width: 100%; border-radius: 12px; margin-top: 10px; }
+        .hidden { display: none; }
+        .footer-admin { text-align: center; margin-top: 30px; padding: 20px; font-size: 12px; color: #888; }
+        .support-btn { background: #007bff; color: white; text-decoration: none; padding: 12px; border-radius: 10px; display: block; margin-top: 15px; font-weight: bold; text-align: center; }
+        #loader { text-align: center; padding: 20px; color: #666; }
+    </style>
+</head>
+<body>
+
+<div id="setup-view" class="container hidden">
+    <div class="card">
+        <h2 style="text-align:center;">Naya Showcase Setup</h2>
+        <input type="text" id="inN" placeholder="Aapka Naam">
+        <input type="text" id="inW" placeholder="Kaam ka Type">
+        <input type="number" id="inP" placeholder="WhatsApp Number">
+        <input type="password" id="inPin" maxlength="4" placeholder="Contractor PIN (4 Digit)">
+        <label>Banner Photo:</label><input type="file" onchange="proc(this,'b')">
+        <label>Profile Photo:</label><input type="file" onchange="proc(this,'p')">
+        <button class="btn-green" onclick="start()">Gallery Launch Karein</button>
+        <button style="background:#666; color:white;" onclick="toggleView('main-view')">Wapas Example Par</button>
+    </div>
+</div>
+
+<div id="main-view" class="container">
+    <div id="loader">Database se jud rahe hain... कृपया प्रतीक्षा करें।</div>
+    <div id="active-content" class="hidden">
+        <div class="banner-wrap">
+            <img id="outB" class="banner-img" src="https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?q=80&w=800">
+            <div class="overlay">
+                <h1 class="name-big" id="outN">Tamir Ali</h1>
+                <div class="work-tag" id="outW">Weld Line</div>
+                <a href="#" id="waL" class="wa-link">📞 WhatsApp Loading...</a>
+            </div>
+        </div>
+        <center><img id="outP" class="profile-pic" src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"></center>
+        
+        <div id="feed">
+            </div>
+    </div>
+
+    <div class="container">
+        <button class="btn-green" style="background:#333;" onclick="toggleView('setup-view')">Naya Contractor Register Karein</button>
+        <button id="loginBtn" style="width:auto; font-size:11px; margin:10px auto; display:block;" onclick="openMgmt()">Contractor Login (PIN)</button>
+        
+        <div id="mgmt-box" class="card hidden">
+            <h4>Management Dashboard</h4>
+            <input type="text" id="prjT" placeholder="Project Title">
+            <textarea id="prjD" placeholder="Details..."></textarea>
+            <input type="file" onchange="proc(this,'j')">
+            <button class="btn-green" id="postBtn" onclick="addProject()">Post Project</button>
+            <button onclick="exitMgmt()" style="background:var(--danger); color:white; border:none;">Exit Settings</button>
+        </div>
+
+        <div class="footer-admin">
+            <button style="border:none; background:none; color:#007bff; cursor:pointer;" onclick="masterAdmin()">Master Admin Login</button>
+            <a href="https://wa.me/918797221991" class="support-btn">Contact Admin: 918797221991</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Firebase Configuration (Tamir Ali's Project)
+    const firebaseConfig = {
+        apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+        authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+        projectId: "contrectors-zone-25c0a",
+        storageBucket: "contrectors-zone-25c0a.firebasestorage.app",
+        messagingSenderId: "796993751473",
+        appId: "1:796993751473:web:4f2481455a0f68b7dd5590",
+        databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const dbRef = firebase.database().ref('cwz_data');
+
+    let db = { profile: null, projects: [], status: 'ON' };
+    let tP="", tB="", tJ="";
+
+    // 2. Load Data from Firebase
+    function loadData() {
+        dbRef.on('value', (snapshot) => {
+            const cloudData = snapshot.val();
+            if(cloudData) {
+                db = cloudData;
+                if(!db.projects) db.projects = [];
+            }
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('active-content').classList.remove('hidden');
+            render();
+        });
+    }
+
+    function toggleView(id) {
+        document.getElementById('setup-view').classList.add('hidden');
+        document.getElementById('main-view').classList.add('hidden');
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    // Image Compression
+    function proc(i, t) {
+        const r = new FileReader();
+        r.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                const x = c.getContext('2d');
+                c.width = (t === 'b' ? 600 : 400); // Small size for database efficiency
+                c.height = img.height * (c.width / img.width);
+                x.drawImage(img, 0, 0, c.width, c.height);
+                const res = c.toDataURL('image/jpeg', 0.5);
+                if(t === 'p') tP = res; else if(t === 'b') tB = res; else tJ = res;
+            };
+        };
+        r.readAsDataURL(i.files[0]);
+    }
+
+    function start() {
+        const n = document.getElementById('inN').value, p = document.getElementById('inP').value, pin = document.getElementById('inPin').value;
+        if(!n || !p || pin.length < 4) return alert("Sari jankari bharein!");
+        
+        db.profile = { n, w: document.getElementById('inW').value, p, pin, tP, tB };
+        db.projects = [];
+        db.status = 'ON';
+        
+        dbRef.set(db).then(() => {
+            toggleView('main-view');
+        });
+    }
+
+    function openMgmt() {
+        if(!db.profile) return alert("Pehle Register Karein!");
+        const p = prompt("Contractor PIN Dalein:");
+        if(p === db.profile.pin) document.getElementById('mgmt-box').classList.remove('hidden');
+        else alert("Galat PIN!");
+    }
+
+    function exitMgmt() { document.getElementById('mgmt-box').classList.add('hidden'); }
+
+    function addProject() {
+        const t = document.getElementById('prjT').value;
+        if(!t || !tJ) return alert("Photo aur Name zaroori hai!");
+        
+        document.getElementById('postBtn').innerText = "Uploading...";
+        
+        const newProject = { 
+            t, 
+            de: document.getElementById('prjD').value, 
+            img: tJ, 
+            dt: new Date().toLocaleDateString('hi-IN') 
+        };
+
+        if(!db.projects) db.projects = [];
+        db.projects.unshift(newProject);
+        
+        dbRef.set(db).then(() => {
+            document.getElementById('postBtn').innerText = "Post Project";
+            tJ=""; 
+            document.getElementById('prjT').value = "";
+            document.getElementById('prjD').value = "";
+            alert("Project Live Ho Gaya!");
+        });
+    }
+
+    function masterAdmin() {
+        const p = prompt("Master Admin Password:");
+        if(p === "tamir@00769") {
+            const op = confirm("Gallery Status Badlein?\nOK = ON (Chalu), Cancel = OFF (Band)");
+            db.status = op ? 'ON' : 'OFF';
+            dbRef.set(db);
+        } else alert("Access Denied!");
+    }
+
+    function render() {
+        if(!db.profile) return;
+
+        if(db.status === 'OFF') {
+            document.getElementById('active-content').innerHTML = "<div style='text-align:center; padding:100px 20px;'><h3>Account Suspended</h3><p>Contact admin for payment.</p></div>";
+            return;
+        }
+
+        document.getElementById('outN').innerText = db.profile.n;
+        document.getElementById('outW').innerText = db.profile.w;
+        document.getElementById('waL').innerText = "📞 WhatsApp: " + db.profile.p;
+        document.getElementById('waL').href = "https://wa.me/" + db.profile.p;
+        if(db.profile.tB) document.getElementById('outB').src = db.profile.tB;
+        if(db.profile.tP) document.getElementById('outP').src = db.profile.tP;
+
+        if(db.projects && db.projects.length > 0) {
+            document.getElementById('feed').innerHTML = db.projects.map((p) => `
+                <div class="card">
+                    <span style="font-size:10px; color:#999; float:right;">${p.dt}</span>
+                    <h4 style="margin:0;">${p.t}</h4>
+                    <p style="font-size:13px; color:#555; margin:5px 0;">${p.de}</p>
+                    <img src="${p.img}" class="project-img">
+                </div>
+            `).join('');
+        }
+    }
+
+    window.onload = loadData;
+</script>
+</body>
+</html>
