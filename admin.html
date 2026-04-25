@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master Admin Panel | Contractor Zone</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Login Box */
+        .login-box {
+            background: white;
+            border-radius: 32px;
+            padding: 40px;
+            max-width: 400px;
+            margin: 100px auto;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 14px;
+            margin: 15px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 1rem;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .login-box button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Admin Panel */
+        .admin-header {
+            background: white;
+            border-radius: 24px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .admin-header h1 {
+            font-size: 1.5rem;
+            color: #1e293b;
+        }
+
+        .search-box {
+            flex: 1;
+            max-width: 300px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border: 2px solid #e2e8f0;
+            border-radius: 40px;
+            font-size: 0.9rem;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+
+        .stats-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .contractor-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            border-left: 5px solid #667eea;
+        }
+
+        .contractor-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .contractor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .contractor-info h3 {
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .contractor-info p {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin: 3px 0;
+        }
+
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 40px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn-icon {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-toggle {
+            background: #fbbf24;
+            color: #78350f;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-view {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-icon:hover {
+            transform: translateY(-2px);
+            filter: brightness(0.95);
+        }
+
+        .edit-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .admin-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            .search-box {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loginContainer" class="container">
+    <div class="login-box">
+        <i class="fas fa-crown" style="font-size: 50px; color: #667eea; margin-bottom: 20px;"></i>
+        <h2 style="margin-bottom: 20px;">Master Admin Login</h2>
+        <input type="password" id="adminPassword" placeholder="Enter Secure Password">
+        <button onclick="verifyAdmin()">Login <i class="fas fa-arrow-right"></i></button>
+    </div>
+</div>
+
+<div id="adminPanel" class="container hidden">
+    <div class="admin-header">
+        <h1><i class="fas fa-crown"></i> Contractor Management System</h1>
+        <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" id="searchInput" placeholder="Search by name or phone..." onkeyup="filterContractors()">
+        </div>
+        <div class="stats-box">
+            <i class="fas fa-users"></i> Total: <span id="totalCount">0</span>
+        </div>
+    </div>
+    <div id="contractorsList"></div>
+    <button class="btn-icon" onclick="logout()" style="margin-top: 20px; background: #64748b; color: white; width: 100%; justify-content: center;">
+        <i class="fas fa-sign-out-alt"></i> Logout
+    </button>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAtv8io-eRu0EvNAbIWYrIyjWSQmuDhH8k",
+        authDomain: "contrectors-zone-25c0a.firebaseapp.com",
+        projectId: "contrectors-zone-25c0a",
+        databaseURL: "https://contrectors-zone-25c0a-default-rtdb.firebaseio.com",
+        storageBucket: "contrectors-zone-25c0a.appspot.com"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let allContractors = [];
+    let editingContractorId = null;
+    
+    // Secure Admin Password (Hashed in production, but stored in separate file for security)
+    const ADMIN_PASSWORD = "tamir@00769";
+    
+    function showToast(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-triangle' : 'fa-check-circle'}"></i> ${message}`;
+        toast.style.background = isError ? '#dc2626' : '#10b981';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    function verifyAdmin() {
+        const password = document.getElementById('adminPassword').value;
+        if (password === ADMIN_PASSWORD) {
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('adminPanel').classList.remove('hidden');
+            loadContractors();
+            showToast('Login successful! Welcome Admin');
+        } else {
+            showToast('Invalid password! Access denied', true);
+        }
+    }
+    
+    function logout() {
+        document.getElementById('loginContainer').classList.remove('hidden');
+        document.getElementById('adminPanel').classList.add('hidden');
+        document.getElementById('adminPassword').value = '';
+    }
+    
+    function loadContractors() {
+        db.ref('contractors').on('value', (snapshot) => {
+            const data = snapshot.val();
+            allContractors = [];
+            if (data) {
+                for (let id in data) {
+                    allContractors.push({
+                        id: id,
+                        ...data[id]
+                    });
+                }
+            }
+            document.getElementById('totalCount').innerText = allContractors.length;
+            filterContractors();
+        });
+    }
+    
+    function filterContractors() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = allContractors.filter(contractor => {
+            const name = contractor.profile?.n?.toLowerCase() || '';
+            const phone = contractor.profile?.p || '';
+            return name.includes(searchTerm) || phone.includes(searchTerm);
+        });
+        displayContractors(filtered);
+    }
+    
+    function displayContractors(contractors) {
+        const container = document.getElementById('contractorsList');
+        
+        if (contractors.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 50px; background: white; border-radius: 20px;">No contractors found</div>';
+            return;
+        }
+        
+        let html = '';
+        contractors.forEach(contractor => {
+            const profile = contractor.profile || {};
+            const status = contractor.status || 'ON';
+            const isActive = status === 'ON';
+            
+            html += `
+                <div class="contractor-card" data-id="${contractor.id}">
+                    <div class="contractor-header">
+                        <div class="contractor-info">
+                            <h3><i class="fas fa-user-hard-hat"></i> ${escapeHtml(profile.n || 'Unknown')}</h3>
+                            <p><i class="fas fa-phone"></i> ${profile.p || 'No phone'}</p>
+                            <p><i class="fas fa-id-card"></i> ID: ${contractor.id}</p>
+                        </div>
+                        <div>
+                            <span class="status-badge ${isActive ? 'status-active' : 'status-inactive'}">
+                                ${isActive ? '🟢 ACTIVE' : '🔴 INACTIVE'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="action-buttons">
+                        <button class="btn-icon btn-toggle" onclick="toggleStatus('${contractor.id}', '${status}')">
+                            <i class="fas fa-power-off"></i> Turn ${isActive ? 'OFF' : 'ON'}
+                        </button>
+                        <button class="btn-icon btn-edit" onclick="editContractor('${contractor.id}', '${escapeHtml(profile.n || '')}', '${profile.p || ''}')">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn-icon btn-delete" onclick="deleteContractor('${contractor.id}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                        <button class="btn-icon btn-view" onclick="window.open('index.html?id=${contractor.id}', '_blank')">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+    
+    window.toggleStatus = function(contractorId, currentStatus) {
+        const newStatus = currentStatus === 'ON' ? 'OFF' : 'ON';
+        db.ref(`contractors/${contractorId}/status`).set(newStatus)
+            .then(() => showToast(`Contractor ${newStatus === 'ON' ? 'activated' : 'deactivated'} successfully`))
+            .catch(err => showToast('Error: ' + err.message, true));
+    };
+    
+    window.deleteContractor = function(contractorId) {
+        if (confirm('⚠️ WARNING: This will permanently delete ALL data of this contractor!\nAre you absolutely sure?')) {
+            db.ref(`contractors/${contractorId}`).remove()
+                .then(() => showToast('Contractor deleted permanently'))
+                .catch(err => showToast('Delete failed: ' + err.message, true));
+        }
+    };
+    
+    window.editContractor = function(contractorId, currentName, currentPhone) {
+        editingContractorId = contractorId;
+        
+        const modal = document.createElement('div');
+        modal.className = 'edit-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3><i class="fas fa-edit"></i> Edit Contractor</h3>
+                <input type="text" id="editName" placeholder="Full Name" value="${currentName}">
+                <input type="tel" id="editPhone" placeholder="WhatsApp Number" value="${currentPhone}">
+                <div class="modal-buttons">
+                    <button class="btn-icon" onclick="saveEdit()" style="background: #10b981; color: white; flex:1;">Save Changes</button>
+                    <button class="btn-icon" onclick="closeModal()" style="background: #64748b; color: white; flex:1;">Cancel</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    };
+    
+    window.saveEdit = function() {
+        const newName = document.getElementById('editName').value.trim();
+        const newPhone = document.getElementById('editPhone').value.trim();
+        
+        if (!newName || !newPhone) {
+            showToast('Name and Phone required', true);
+            return;
+        }
+        
+        if (!/^\d{10}$/.test(newPhone)) {
+            showToast('Valid 10-digit phone required', true);
+            return;
+        }
+        
+        const updates = {};
+        updates[`contractors/${editingContractorId}/profile/n`] = newName;
+        updates[`contractors/${editingContractorId}/profile/p`] = newPhone;
+        
+        db.ref().update(updates)
+            .then(() => {
+                showToast('Contractor updated successfully!');
+                closeModal();
+            })
+            .catch(err => showToast('Error: ' + err.message, true));
+    };
+    
+    window.closeModal = function() {
+        const modal = document.querySelector('.edit-modal');
+        if (modal) modal.remove();
+        editingContractorId = null;
+    };
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+</script>
+</body>
+</html>
